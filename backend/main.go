@@ -24,8 +24,8 @@ var InMemoryTask Task = Task{
 const ListenAddr string = ":8080"
 
 func main() {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	taskMux := http.NewServeMux()
+	taskMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:
 			slog.Info("request", "path", "/", "method", http.MethodGet)
@@ -90,9 +90,12 @@ func main() {
 		}
 	})
 
+	rootMux := http.NewServeMux()
+	rootMux.Handle("/api/task", taskMux)
+
 	s := &http.Server{
 		Addr:              ListenAddr,
-		Handler:           mux,
+		Handler:           rootMux,
 		ReadTimeout:       10 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
 		WriteTimeout:      10 * time.Second,
