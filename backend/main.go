@@ -26,7 +26,17 @@ const ListenAddr string = ":8080"
 func main() {
 	taskMux := http.NewServeMux()
 	taskMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+		headers := w.Header()
+		headers.Add("Access-Control-Allow-Origin", "*")
+		headers.Add("Vary", "Origin")
+		headers.Add("Vary", "Access-Control-Request-Method")
+		headers.Add("Vary", "Access-Control-Request-Headers")
+		headers.Add("Access-Control-Allow-Headers", "Content-Type, Origin, Accept, token")
+		headers.Add("Access-Control-Allow-Methods", "GET,PUT")
+
 		switch r.Method {
+		case http.MethodOptions:
+			w.WriteHeader(http.StatusOK)
 		case http.MethodGet:
 			slog.Info("request", "path", "/", "method", http.MethodGet)
 
@@ -37,7 +47,7 @@ func main() {
 				return
 			}
 
-			w.Header().Set("Content-Type", "application/json")
+			headers.Set("Content-Type", "application/json")
 			if _, err = w.Write(data); err != nil {
 				slog.Error("error in writing response", "error", err.Error())
 			}
@@ -81,6 +91,11 @@ func main() {
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}
+			if len(task.Title) > 100 {
+				slog.Warn("got title that is too long")
+				w.WriteHeader(http.StatusRequestEntityTooLarge)
+				return
+			}
 
 			slog.Info("overwriting task in memory", "newTitle", task.Title, "newCompleted", task.Completed)
 			InMemoryTask = task
@@ -105,6 +120,7 @@ func main() {
 	go func() {
 		if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("error while serving", "error", err.Error())
+			os.Exit(1)
 		}
 	}()
 
