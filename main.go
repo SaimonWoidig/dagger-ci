@@ -1,10 +1,12 @@
 package main
 
+//go:generate dagger mod sync
+
 import (
 	"context"
 )
 
-type SampleApp struct {}
+type SampleApp struct{}
 
 // example usage: "dagger call container-echo --string-arg yo"
 func (m *SampleApp) ContainerEcho(stringArg string) *Container {
@@ -20,4 +22,3 @@ func (m *SampleApp) GrepDir(ctx context.Context, directoryArg *Directory, patter
 		WithExec([]string{"grep", "-R", pattern, "."}).
 		Stdout(ctx)
 }
-
