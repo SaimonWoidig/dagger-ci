@@ -1,4 +1,7 @@
 {
   "name": "sample-app",
-  "sdk": "go"
+  "sdk": "go",
+  "dependencies": [
+    "github.com/quartz-technology/daggerverse/golang@8812a090cd9096df1e4c3d1d9402b36b091304cb"
+  ]
 }

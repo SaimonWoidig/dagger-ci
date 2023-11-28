@@ -4,21 +4,29 @@ package main
 
 import (
 	"context"
+	"fmt"
 )
 
 type SampleApp struct{}
 
-// example usage: "dagger call container-echo --string-arg yo"
-func (m *SampleApp) ContainerEcho(stringArg string) *Container {
-	return dag.Container().From("alpine:latest").WithExec([]string{"echo", stringArg})
+const (
+	DefaultRegistry         string = "ghcr.io/SaimonWoidig"
+	DefaultBackendImageName string = "backend"
+)
+
+func GetAuthdContainer(registryUser string, registryPassword string, registryPath Optional[string]) *Container {
+	return dag.Container().WithRegistryAuth(fmt.Sprintf("%v/%v", DefaultRegistry, DefaultBackendImageName), registryUser, dag.SetSecret("registryPassword", registryPassword))
 }
 
-// example usage: "dagger call grep-dir --directory-arg . --pattern GrepDir"
-func (m *SampleApp) GrepDir(ctx context.Context, directoryArg *Directory, pattern string) (string, error) {
-	return dag.Container().
-		From("alpine:latest").
-		WithMountedDirectory("/mnt", directoryArg).
-		WithWorkdir("/mnt").
-		WithExec([]string{"grep", "-R", pattern, "."}).
-		Stdout(ctx)
+func (m *SampleApp) BuildBackend(ctx context.Context) *Container {
+	backendSource := dag.Host().Directory("./backend")
+	authdCtr := dag.Container().
+		WithRegistryAuth("docker.io", "", dag.SetSecret("", ""))
+	return dag.
+		Golang().
+		WithContainer(authdCtr).
+		WithVersion("1.21.4").
+		WithSource(backendSource).
+		Download().
+		Build()
 }
