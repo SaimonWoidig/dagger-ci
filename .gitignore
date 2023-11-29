@@ -22,3 +22,6 @@ go.work.sum
 /dagger.gen.go
 /internal/querybuilder/
 /querybuilder/
+
+# GHSA token
+gh-token-rw-packages

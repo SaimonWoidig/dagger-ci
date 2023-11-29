@@ -49,8 +49,9 @@ func (m *Ci) BackendImage() *Container {
 		WithEntrypoint([]string{"/backend"})
 }
 
-func (m *Ci) PublishBackend(ctx context.Context, regUser string, regPass string) (string, error) {
-	fullImageRef := fmt.Sprintf("%v/%v", DefaultRegistry, DefaultBackendImageName)
+func (m *Ci) PublishBackend(ctx context.Context, regUser string, regPass string, imageTag Optional[string]) (string, error) {
+	tag := imageTag.GetOr("develop")
+	fullImageRef := fmt.Sprintf("%v/%v:%v", DefaultRegistry, DefaultBackendImageName, tag)
 	return m.BackendImage().
 		WithRegistryAuth(DefaultRegistry, regUser, dag.Host().SetSecretFile("registryPassword", regPass)).
 		Publish(ctx, fullImageRef)
