@@ -5,28 +5,53 @@ package main
 import (
 	"context"
 	"fmt"
+	"strconv"
 )
 
-type SampleApp struct{}
+type Ci struct{}
 
 const (
-	DefaultRegistry         string = "ghcr.io/SaimonWoidig"
+	ImageSource             string = "https://github.com/SaimonWoidig/dagger-ci"
+	DefaultRegistry         string = "ghcr.io/saimonwoidig/dagger-ci"
 	DefaultBackendImageName string = "backend"
+	DefaultGolangVersion    string = "1.21.4"
+	DefaultBackendPort      int    = 8080
 )
 
-func GetAuthdContainer(registryUser string, registryPassword string, registryPath Optional[string]) *Container {
-	return dag.Container().WithRegistryAuth(fmt.Sprintf("%v/%v", DefaultRegistry, DefaultBackendImageName), registryUser, dag.SetSecret("registryPassword", registryPassword))
+func (m *Ci) golangBuilder() *Container {
+	return dag.Container().
+		WithRegistryAuth("docker.io", "", dag.SetSecret("", "")).
+		From(fmt.Sprintf("docker.io/library/golang:%v", DefaultGolangVersion)).
+		WithWorkdir("/src").
+		WithEntrypoint([]string{"go"}).
+		WithMountedCache("/go/pkg/mod", dag.CacheVolume("gomod")).
+		WithMountedCache("/root/.cache/go-build", dag.CacheVolume("gobuild"))
 }
 
-func (m *SampleApp) BuildBackend(ctx context.Context) *Container {
-	backendSource := dag.Host().Directory("./backend")
-	authdCtr := dag.Container().
-		WithRegistryAuth("docker.io", "", dag.SetSecret("", ""))
-	return dag.
-		Golang().
-		WithContainer(authdCtr).
-		WithVersion("1.21.4").
-		WithSource(backendSource).
-		Download().
-		Build()
+func (m *Ci) BuildBackend() *File {
+	src := dag.Host().Directory("./backend")
+	return m.golangBuilder().
+		WithMountedDirectory("/src", src).
+		WithExec([]string{"mod", "download"}).
+		WithEnvVariable("CGO_ENABLED", "0").
+		WithExec([]string{"build", "-o", "/out/backend", "-ldflags", "-extldflags '-static'", "-tags", "osusergo,netgo"}).
+		Directory("/out").
+		File("backend")
+}
+
+func (m *Ci) BackendImage() *Container {
+	return dag.Container().
+		WithWorkdir("/").
+		WithFile("/backend", m.BuildBackend()).
+		WithLabel("org.opencontainers.image.source", ImageSource).
+		WithEnvVariable("PORT", strconv.Itoa(DefaultBackendPort)).
+		WithExposedPort(DefaultBackendPort).
+		WithEntrypoint([]string{"/backend"})
+}
+
+func (m *Ci) PublishBackend(ctx context.Context, regUser string, regPass string) (string, error) {
+	fullImageRef := fmt.Sprintf("%v/%v", DefaultRegistry, DefaultBackendImageName)
+	return m.BackendImage().
+		WithRegistryAuth(DefaultRegistry, regUser, dag.Host().SetSecretFile("registryPassword", regPass)).
+		Publish(ctx, fullImageRef)
 }

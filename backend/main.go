@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"time"
 )
 
@@ -21,9 +23,12 @@ var InMemoryTask Task = Task{
 	Completed: false,
 }
 
-const ListenAddr string = ":8080"
+const EnvKeyPort string = "PORT"
+const DefaultPort int = 8080
 
 func main() {
+	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug, AddSource: true})))
+
 	taskMux := http.NewServeMux()
 	taskMux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		headers := w.Header()
@@ -108,15 +113,24 @@ func main() {
 	rootMux := http.NewServeMux()
 	rootMux.Handle("/api/task", taskMux)
 
+	var port int
+	var err error
+	portEnv := os.Getenv(EnvKeyPort)
+	if port, err = strconv.Atoi(portEnv); err != nil || port <= 0 {
+		slog.Info("port not set or incorrect, using default", "defaultPort", DefaultPort)
+		port = DefaultPort
+	}
+	addr := fmt.Sprintf(":%v", port)
+
 	s := &http.Server{
-		Addr:              ListenAddr,
+		Addr:              addr,
 		Handler:           rootMux,
 		ReadTimeout:       10 * time.Second,
 		ReadHeaderTimeout: 10 * time.Second,
 		WriteTimeout:      10 * time.Second,
 	}
 
-	slog.Info("starting server", "addr", ListenAddr)
+	slog.Info("starting server", "port", port)
 	go func() {
 		if err := s.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			slog.Error("error while serving", "error", err.Error())
