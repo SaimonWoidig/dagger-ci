@@ -1,0 +1,23 @@
+name: Run Dagger CI
+on:
+  push:
+    branches: main
+jobs:
+  publish-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run dagger
+        uses: dagger/dagger-for-github@v5
+        with:
+          verb: call
+          args: publishBackend --regUser ${{github.actor}} --regPass ${{secrets.GITHUB_TOKEN}}
+  publish-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run dagger
+        uses: dagger/dagger-for-github@v5
+        with:
+          verb: call
+          args: publishFrontend --regUser ${{github.actor}} --regPass ${{secrets.GITHUB_TOKEN}}
