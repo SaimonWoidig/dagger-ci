@@ -2,6 +2,7 @@ name: Run Dagger CI
 on:
   push:
     branches: main
+  workflow_dispatch: {}
 jobs:
   publish-backend:
     runs-on: ubuntu-latest
