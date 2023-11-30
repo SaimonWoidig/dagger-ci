@@ -18,8 +18,9 @@ const (
 	DefaultGolangVersion    string = "1.21.4"
 	DefaultBackendPort      int    = 8080
 
-	DefaultNginxVersion string = "mainline-alpine-slim"
-	DefaultFrontendPort int    = 8080
+	DefaultFrontendImageName string = "frontend"
+	DefaultNginxVersion      string = "mainline-alpine-slim"
+	DefaultFrontendPort      int    = 8080
 )
 
 func (m *Ci) golangBuilder() *Container {
@@ -43,7 +44,7 @@ func (m *Ci) BuildBackend() *File {
 		File("backend")
 }
 
-func (m *Ci) BackendImage() *Container {
+func (m *Ci) BackendContainer() *Container {
 	return dag.Container().
 		WithWorkdir("/").
 		WithFile("/backend", m.BuildBackend()).
@@ -53,15 +54,15 @@ func (m *Ci) BackendImage() *Container {
 		WithEntrypoint([]string{"/backend"})
 }
 
-func (m *Ci) PublishBackend(ctx context.Context, regUser string, regPass string, imageTag Optional[string]) (string, error) {
+func (m *Ci) PublishBackend(ctx context.Context, regUser string, regPass *Secret, imageTag Optional[string]) (string, error) {
 	tag := imageTag.GetOr("develop")
 	fullImageRef := fmt.Sprintf("%v/%v:%v", DefaultRegistry, DefaultBackendImageName, tag)
-	return m.BackendImage().
-		WithRegistryAuth(DefaultRegistry, regUser, dag.Host().SetSecretFile("registryPassword", regPass)).
+	return m.BackendContainer().
+		WithRegistryAuth(DefaultRegistry, regUser, regPass).
 		Publish(ctx, fullImageRef)
 }
 
-func (m *Ci) FrontendImage() *Container {
+func (m *Ci) FrontendContainer() *Container {
 	nginxImageSource := "docker.io/nginxinc/nginx-unprivileged"
 	src := dag.Host().Directory("./frontend")
 	return dag.Container().
@@ -69,4 +70,12 @@ func (m *Ci) FrontendImage() *Container {
 		WithLabel("org.opencontainers.image.source", ImageSource).
 		WithDirectory("/usr/share/nginx/html", src).
 		WithExposedPort(DefaultFrontendPort)
+}
+
+func (m *Ci) PublishFrontend(ctx context.Context, regUser string, regPass *Secret, imageTag Optional[string]) (string, error) {
+	tag := imageTag.GetOr("develop")
+	fullImageRef := fmt.Sprintf("%v/%v:%v", DefaultRegistry, DefaultFrontendImageName, tag)
+	return m.FrontendContainer().
+		WithRegistryAuth(DefaultRegistry, regUser, regPass).
+		Publish(ctx, fullImageRef)
 }
