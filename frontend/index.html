@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <meta lang="en-US" />
     <title>Sample app</title>
+    <link href="./favicon.ico" rel="icon" type="image/x-icon" />
+    <script type="text/javascript" src="./config.js" defer></script>
   </head>
   <body>
     <h1>Task</h1>
@@ -14,46 +16,5 @@
       <input type="submit" name="submitTask" value="Update task" />
     </form>
   </body>
-  <script type="text/javascript">
-    function refreshTask() {
-      let taskDiv = document.getElementById("task");
-      fetch("http://localhost:8080/api/task", { method: "GET" })
-        .then((res) => res.json())
-        .then(
-          (resJson) =>
-            (taskDiv.innerHTML = `${resJson.title}: ${resJson.completed}`)
-        );
-    }
-
-    function updateTask(form) {
-      let taskTitle = form.taskTitle.value;
-      let taskCompleted = form.taskCompleted.checked;
-      fetch("http://localhost:8080/api/task", {
-        method: "PUT",
-        body: JSON.stringify({ title: taskTitle, completed: taskCompleted }),
-        headers: {
-          "Content-Type": "application/json",
-        },
-      })
-        .then((res) => {
-          if (!res.ok) {
-            throw res.statusText;
-          }
-          refreshTask();
-        })
-        .catch((err) => alert(`Error submitting: ${err}`))
-        .finally(() => {
-          form.taskTitle.value = "";
-          form.taskCompleted.checked = false;
-        });
-    }
-
-    document.addEventListener("DOMContentLoaded", refreshTask);
-
-    let taskForm = document.getElementById("taskForm");
-    taskForm.addEventListener("submit", (e) => {
-      e.preventDefault();
-      updateTask(taskForm);
-    });
-  </script>
+  <script type="text/javascript" src="./main.js" defer></script>
 </html>

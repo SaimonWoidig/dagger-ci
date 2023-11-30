@@ -11,17 +11,21 @@ import (
 type Ci struct{}
 
 const (
-	ImageSource             string = "https://github.com/SaimonWoidig/dagger-ci"
-	DefaultRegistry         string = "ghcr.io/saimonwoidig/dagger-ci"
+	ImageSource     string = "https://github.com/SaimonWoidig/dagger-ci"
+	DefaultRegistry string = "ghcr.io/saimonwoidig/dagger-ci"
+
 	DefaultBackendImageName string = "backend"
 	DefaultGolangVersion    string = "1.21.4"
 	DefaultBackendPort      int    = 8080
+
+	DefaultNginxVersion string = "mainline-alpine-slim"
+	DefaultFrontendPort int    = 8080
 )
 
 func (m *Ci) golangBuilder() *Container {
+	golangImageSource := "docker.io/library/golang"
 	return dag.Container().
-		WithRegistryAuth("docker.io", "", dag.SetSecret("", "")).
-		From(fmt.Sprintf("docker.io/library/golang:%v", DefaultGolangVersion)).
+		From(fmt.Sprintf("%v:%v", golangImageSource, DefaultGolangVersion)).
 		WithWorkdir("/src").
 		WithEntrypoint([]string{"go"}).
 		WithMountedCache("/go/pkg/mod", dag.CacheVolume("gomod")).
@@ -34,7 +38,7 @@ func (m *Ci) BuildBackend() *File {
 		WithMountedDirectory("/src", src).
 		WithExec([]string{"mod", "download"}).
 		WithEnvVariable("CGO_ENABLED", "0").
-		WithExec([]string{"build", "-o", "/out/backend", "-ldflags", "-extldflags '-static'", "-tags", "osusergo,netgo"}).
+		WithExec([]string{"build", "-v", "-o", "/out/backend", "-ldflags", "-v -s -w -extldflags '-static'", "-tags", "osusergo,netgo", "-trimpath"}).
 		Directory("/out").
 		File("backend")
 }
@@ -55,4 +59,14 @@ func (m *Ci) PublishBackend(ctx context.Context, regUser string, regPass string,
 	return m.BackendImage().
 		WithRegistryAuth(DefaultRegistry, regUser, dag.Host().SetSecretFile("registryPassword", regPass)).
 		Publish(ctx, fullImageRef)
+}
+
+func (m *Ci) FrontendImage() *Container {
+	nginxImageSource := "docker.io/nginxinc/nginx-unprivileged"
+	src := dag.Host().Directory("./frontend")
+	return dag.Container().
+		From(fmt.Sprintf("%v:%v", nginxImageSource, DefaultNginxVersion)).
+		WithLabel("org.opencontainers.image.source", ImageSource).
+		WithDirectory("/usr/share/nginx/html", src).
+		WithExposedPort(DefaultFrontendPort)
 }
